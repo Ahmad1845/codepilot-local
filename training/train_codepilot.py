@@ -49,7 +49,9 @@ def main():
     )
     model.print_trainable_parameters()
 
-    # Apply chat template
+    # Apply strict chat template (no markdown wrappers)
+    # The user content now explicitly forbids markdown, and system prompt is strict.
+    SYSTEM_PROMPT = "You are an expert Python code reviewer. Review the provided code snippet for security vulnerabilities, bugs, performance issues, error handling flaws, and resource leaks. Return ONLY valid JSON matching the required schema with line numbers, category, severity, issue description, and fix. Return only raw JSON string, NO markdown code blocks."
     prefix = '{% set enable_thinking = false %}\n'
     if isinstance(tokenizer.chat_template, str) and not tokenizer.chat_template.startswith(prefix):
         tokenizer.chat_template = prefix + tokenizer.chat_template
@@ -59,7 +61,10 @@ def main():
     val_raw = load_data("data/processed/val.jsonl")
 
     def render_chat(example):
-        return {"text": tokenizer.apply_chat_template(example["messages"], tokenize=False, add_generation_prompt=False, enable_thinking=False)}
+        # Enforce raw JSON in assistant response and update system prompt
+        messages = example["messages"]
+        messages[0]["content"] = SYSTEM_PROMPT
+        return {"text": tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False, enable_thinking=False)}
 
     train_ds = Dataset.from_list(train_raw).map(render_chat, remove_columns=["messages"])
     val_ds = Dataset.from_list(val_raw).map(render_chat, remove_columns=["messages"])
