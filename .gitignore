@@ -1,0 +1,9 @@
+starter_repo/
+*.gguf
+*.bin
+*.safetensors
+__pycache__/
+outputs/
+temp_base_model/
+.ipynb_checkpoints/
+.env
