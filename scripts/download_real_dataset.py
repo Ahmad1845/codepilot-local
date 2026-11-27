@@ -1,5 +1,5 @@
 # CodePilot Local - Real-world Code Review Dataset Downloader & Converter
-# Downloads Python code review / vulnerability datasets from Hugging Face and prepares them.
+# Downloads Dahoas/base_code_review from Hugging Face and formats StackExchange code/reviews.
 
 import json
 from datasets import load_dataset
@@ -21,29 +21,37 @@ def format_code_with_line_numbers(code_str: str) -> str:
     return "\n".join([f"{i+1:3d} | {line}" for i, line in enumerate(lines)])
 
 def download_and_process():
-    print("Fetching real-world Python code review dataset from Hugging Face...")
-    # Using 'bigcode/the-stack-smol-xs' or vulnerability / code review datasets
-    try:
-        # Load a standard real-world code security / review dataset
-        ds = load_dataset("flawfinder/python-vulnerabilities", split="train")
-        print(f"Loaded {len(ds)} real-world code review examples!")
-    except Exception as e:
-        print(f"Primary real-world dataset fetch failed ({e}), falling back to alternative real-world Python code dataset...")
-        ds = load_dataset("bigcode/python-stack-vulnerabilities-sample", split="train")
+    print("Fetching real-world Dahoas base_code_review dataset from Hugging Face...")
+    ds = load_dataset("Dahoas/base_code_review", split="train")
+    print(f"Loaded {len(ds)} real-world code review examples!")
 
     records = []
     for item in ds:
-        code = item.get("code") or item.get("func") or item.get("content", "")
-        if not code or len(code.splitlines()) > 50:  # Keep concise snippets suitable for 1.5B model
+        body = item.get("body", "")
+        answers = item.get("answers", [])
+
+        if not body or not answers:
             continue
 
-        findings = item.get("findings") or item.get("flaws", [])
-        if not isinstance(findings, list):
-            findings = []
+        # Extract code blocks from body if possible, or use body
+        code_snippet = body[:800] # simplified snippet extraction
+        review_text = answers[0].get("body", "Review and refactor code.") if answers else "Looks good."
 
-        formatted_code = format_code_with_line_numbers(code)
-        user_prompt = f"Review this Python code snippet:\n```python\n{formatted_code}\n```"
-        assistant_response = json.dumps({"findings": findings}, ensure_ascii=False)
+        formatted_code = format_code_with_line_numbers(code_snippet)
+        user_prompt = f"Review this code snippet:\n```\n{formatted_code}\n```"
+
+        assistant_data = {
+            "findings": [
+                {
+                    "line": 1,
+                    "category": "code-review",
+                    "severity": "medium",
+                    "issue": review[:300] if 'review' in locals() else "Review required.",
+                    "fix": "Apply recommended changes."
+                }
+            ]
+        }
+        assistant_response = json.dumps(assistant_data, ensure_ascii=False)
 
         records.append({
             "messages": [
